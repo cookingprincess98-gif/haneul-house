@@ -51,7 +51,8 @@ table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:6px 4px;b
 
 <!-- 추가/수정 -->
 <section class="tab" id="t-form"><div class="card"><h3 id="ftitle">단지 추가</h3>
- <label>단지명</label><input id="f-name" placeholder="예: 래미안 원베일리">
+ <label>단지명 (입력하면 실거래 단지 검색)</label><input id="f-name" placeholder="예: 래미안, 자이, 푸르지오" autocomplete="off" oninput="suggest()">
+ <div id="sug" style="background:#fff;border:1px solid #dde;border-radius:9px;margin-top:4px;max-height:260px;overflow:auto;display:none"></div>
  <div class="row"><div><label>지역(구/시)</label><input id="f-area" placeholder="예: 서울 동작구"></div>
  <div><label>유형</label><select id="f-type"><option>아파트</option><option>분양권</option><option>입주권</option></select></div></div>
  <div class="row"><div><label>매매가(억)</label><input id="f-price" type="number" step="0.1"></div><div><label>전세가(억)</label><input id="f-jeonse" type="number" step="0.1"></div></div>
@@ -121,7 +122,7 @@ function go(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('
  document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.t==t));if(t=='rank')rank();scrollTo(0,0)}
 const F=['name','area','type','price','jeonse','size','units','year','walk','commute','commute2','gtx','prev','memo'];
 function openForm(i=-1){editIdx=i;$('ftitle').textContent=i<0?'단지 추가':'단지 수정';F.forEach(k=>$('f-'+k).value=i<0?(k=='size'?84:k=='type'?'아파트':k=='gtx'?'0':''):apts[i][k]);go('form')}
-function saveApt(){const a={};F.forEach(k=>a[k]=$('f-'+k).value);if(!a.name)return alert('단지명을 입력하세요');
+function saveApt(){$('sug').style.display='none';const a={};F.forEach(k=>a[k]=$('f-'+k).value);if(!a.name)return alert('단지명을 입력하세요');
  if(editIdx<0)apts.push(a);else apts[editIdx]=a;LS.apts=JSON.stringify(apts);render();go('list')}
 function del(i){if(confirm('삭제할까요?')){apts.splice(i,1);LS.apts=JSON.stringify(apts);render()}}
 const cl=v=>Math.max(0,Math.min(100,v));
@@ -212,6 +213,12 @@ function recommend(){const cash=+$('cash').value||0,inc=+$('income').value||0,bm
   ${o.up!=null?`<span class="tag" style="${o.up>=0?'background:#fdecec;color:#e5484d':'background:#e8f0ff;color:#2f6fed'}">1년 ${o.up>=0?'+':''}${o.up.toFixed(1)}%</span>`:''}<span class="tag">거래 ${d[6]}건</span>${o.cw!=null?`<span class="tag">아내 ${MODE[$('wmode').value]} ~${o.cw}분</span>`:''}${o.ch!=null?`<span class="tag">남편 ${MODE[$('hmode').value]} ~${o.ch}분</span>`:''}
   <div style="background:#f6f8ff;border-radius:10px;padding:10px;margin-top:8px;font-size:13px;line-height:1.6"><b>💡 추천 이유</b><br>${why.map(w=>'· '+w).join('<br>')||'· 조건에 맞는 가격대 단지예요'}<br><b>💰 자금</b> 대출 약 ${won(n.loan)} + 필요현금 ${won(n.cashN)} → <b style="color:${ok?'#159947':'#e5484d'}">${ok?'여유 '+won(cash-n.cashN):'부족 '+won(n.cashN-cash)}</b></div>
   <div class="row" style="margin-top:8px"><button class="sm" onclick="addRec(${i})">+ 관심단지</button><button class="sm ghost" onclick="window.open('https://map.kakao.com/?q='+encodeURIComponent('${d[0]} ${d[1]} ${d[2]}'),'_blank')">지도</button><button class="sm ghost" onclick="$('c-price').value=${(d[5]/10000).toFixed(2)};go('calc');calc()">계산</button></div></div>`}).join('')||'<div class="card muted">조건에 맞는 단지가 없어요. 연식, 거래 건수, 지역 조건을 완화해보세요.</div>')}
+let SUG=[];
+function suggest(){const q=$('f-name').value.replace(/\s/g,'');const box=$('sug');if(q.length<2){box.style.display='none';return}
+ SUG=DATA.filter(d=>(d[2]+d[1]).replace(/\s/g,'').includes(q)).sort((a,b)=>b[6]-a[6]).slice(0,30);
+ box.innerHTML=SUG.length?SUG.map((d,i)=>`<div onclick="pickSug(${i})" style="padding:10px;border-bottom:1px solid #f0f0f5;cursor:pointer"><b style="font-size:14px">${d[2]}</b> <span style="color:#3b5bfd;font-weight:700">${won(d[5])}</span><div class="muted">${d[0]} ${d[1]} · 전용 ${d[3]}㎡ · ${d[4]}년 · 최근 ${d[6]}건</div></div>`).join(''):'<div class="muted" style="padding:10px">최근 거래 단지 중 검색 결과가 없어요. 그대로 직접 입력해도 돼요.</div>';box.style.display='block'}
+function pickSug(i){const d=SUG[i];$('f-name').value=d[2];$('f-area').value=d[0]+' '+d[1];$('f-type').value='아파트';$('f-price').value=(d[5]/10000).toFixed(2);$('f-size').value=d[3];$('f-year').value=d[4];$('f-prev').value=d[7]?(d[7]/10000).toFixed(2):'';
+ const cw=commute(d[0],'w'),ch=commute(d[0],'h');if(cw!=null)$('f-commute').value=cw;if(ch!=null)$('f-commute2').value=ch;$('sug').style.display='none'}
 function addRec(i){const d=REC[i].d;apts.push({name:d[2],area:d[0].replace(/^(서울|경기|인천) /,'$1 ')+' '+d[1],type:'아파트',price:(d[5]/10000).toFixed(2),jeonse:'',size:d[3],units:'',year:d[4],walk:'',commute:REC[i].cw??'',commute2:REC[i].ch??'',gtx:'0',prev:d[7]?(d[7]/10000).toFixed(2):'',memo:'추천에서 추가'});LS.apts=JSON.stringify(apts);render();alert(d[2]+' 관심단지에 추가했어요. 역 도보·통근 시간을 채우면 점수가 정확해져요.')}
 render();
 </script></body></html>
